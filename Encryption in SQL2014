@@ -1,0 +1,49 @@
+DatabaseMasterKey##'
+3) Next create certificate named as “TestDB_Backup_Certificate” which will be used for encrypting database backup file.
+Use Master
+GO
+Create Certificate TestDB_Backup_Certificate
+with subject='Backup Encryption in SQL 2014'
+4) Now perform backup of certificate created in previous steps using below query –
+BACKUP CERTIFICATE TestDB_Backup_Certificate
+TO FILE = 'D:\SQL_DB_Backup\SQL_2K14\TestDB_Backup_Certificate.cer'
+WITH PRIVATE KEY(FILE='D:\SQL_DB_Backup\SQL_2K14\TestDB_Backup_Certificate.pvk',
+ENCRYPTION BY PASSWORD='Password@123');
+5) Now perform database backup with encryption using algorithm AES_256 and certificate as shown below -
+Backup database Test
+To Disk='D:\SQL_DB_Backup\SQL_2K14\Test.bak'
+with encryption(ALGORITHM= AES_256,
+Server Certificate=TestDB_Backup_Certificate)
+6) Now we have three files as shown below.
+6. Process to restore encrypted database backup
+Steps to perform restoration of encrypted database backup on destination instance of SQL Server named “GGN-AM-19\S2K14_A” are as follows-
+1) Now we will restore database backup on destination instance of SQL Server. Connect to instance named GGN-AM-19\S2K14_A.
+2) After connecting to Instance named as “GGN-AM-19\S2K14_A”, run below query check files in backup files.
+Restore filelistonly
+From Disk='D:\SQL_DB_Backup\SQL_2K14\Test.bak'
+But we will get error as mentioned below –
+Msg 33111, Level 16, State 3, Line 1
+Cannot find server certificate with thumbprint '0x4C1FF9AFD5DBB5C3B5B0C89D757632B0D9573B56'.
+Msg 3013, Level 16, State 1, Line 1
+RESTORE FILELIST is terminating abnormally.
+Note - We are getting above error because we have performed database backup with encryption. So to restore encrypted backup of database to another instance of SQL Server, we need to create master key and then restore certificate from backup performed on step 4.
+3) Now first of all, create master key on master database on destination instance using below query.
+Use Master
+GO
+Create master key encryption by password='Password@123'
+4) Next we will restore certificate from backup performed at Source instance (GGN-AM-19\S2K14).
+Use Master
+GO
+Create CERTIFICATE TestDB_Backup_Certificate
+From FILE = 'D:\SQL_DB_Backup\SQL_2K14\TestDB_Backup_Certificate.cer'
+WITH PRIVATE KEY(FILE='D:\SQL_DB_Backup\SQL_2K14\TestDB_Backup_Certificate.pvk',
+DECRYPTION BY PASSWORD='Password@123');
+5) Now we will try to read files inside encrypted backup of database on destination SQL Server using below query.
+Restore filelistonly
+From Disk='D:\SQL_DB_Backup\SQL_2K14\Test.bak'
+6) Now we can restore encrypted backup of database on destination instance of SQL Server.
+Restore Database Test
+From Disk='D:\SQL_DB_Backup\SQL_2K14\Test.bak'
+with move 'Test' to 'D:\Program Files\Microsoft SQL Server\MSSQL12.S2K14_A\MSSQL\DATA\Test.mdf',
+move 'Test_log' to 'D:\Program Files\Microsoft SQL Server\MSSQL12.S2K14_A\MSSQL\DATA\Test_log.ldf'
+End of Document
